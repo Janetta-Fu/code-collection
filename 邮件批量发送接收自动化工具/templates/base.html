@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>外贸邮件在线系统</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">Mail System</div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">工作台</a>
+      <a href="{{ url_for('send_page') }}">批量发送</a>
+      <a href="{{ url_for('inbox') }}">收件箱/自动回复</a>
+      <a href="{{ url_for('settings') }}">邮箱与模板</a>
+      <a href="{{ url_for('logs') }}">发送记录</a>
+      {% if g.is_local_admin %}
+      <a href="{{ url_for('users') }}">账号管理</a>
+      {% endif %}
+    </nav>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1>{% block title %}{% endblock %}</h1>
+        <p>独立工作区：{{ g.workspace_label or '本机工作区' }}</p>
+      </div>
+    </header>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="flash-wrap">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+  document.querySelectorAll('input[type="file"][data-file-label]').forEach(input => {
+    const target = document.getElementById(input.dataset.fileLabel);
+    if (!target) return;
+    input.addEventListener("change", () => {
+      const names = Array.from(input.files || []).map(file => file.name);
+      target.textContent = names.length ? "已选择：" + names.join("，") : "未选择新文件";
+      target.classList.toggle("has-file", names.length > 0);
+    });
+  });
+  </script>
+</body>
+</html>

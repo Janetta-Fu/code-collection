@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}账号管理{% endblock %}
+{% block content %}
+<section class="panel">
+  <form class="inline" method="post">
+    <input name="username" placeholder="账号" required>
+    <input name="password" placeholder="密码" required>
+    <label class="check"><input type="checkbox" name="is_admin"> 管理员</label>
+    <button class="primary" type="submit">创建账号</button>
+  </form>
+  <table>
+    <thead><tr><th>ID</th><th>账号</th><th>管理员</th><th>创建时间</th></tr></thead>
+    <tbody>{% for row in rows %}<tr><td>{{ row.id }}</td><td>{{ row.username }}</td><td>{{ '是' if row.is_admin else '否' }}</td><td>{{ row.created_at }}</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endblock %}

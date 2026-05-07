@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}邮箱与模板配置{% endblock %}
+{% block content %}
+<form class="grid-form" method="post" enctype="multipart/form-data">
+  <section class="panel">
+    <h2>公司信息</h2>
+    <label>公司名称<input name="project.project_name" value="{{ cfg.project.project_name }}"></label>
+    <label>官网<input name="project.project_website" value="{{ cfg.project.project_website }}"></label>
+    <label>产品/服务优势<textarea name="project.product_advantages">{{ cfg.project.product_advantages }}</textarea></label>
+    <label>发件人姓名<input name="project.contact_name" value="{{ cfg.project.contact_name }}"></label>
+    <label>电话<input name="project.contact_phone" value="{{ cfg.project.contact_phone }}"></label>
+    <label>邮箱<input name="project.contact_email" value="{{ cfg.project.contact_email }}"></label>
+    <label>办公地址<textarea name="project.office_address">{{ cfg.project.office_address }}</textarea></label>
+    <label>工厂地址<textarea name="project.factory_address">{{ cfg.project.factory_address }}</textarea></label>
+    <label>版权文字<input name="project.copyright_text" value="{{ cfg.project.copyright_text }}"></label>
+  </section>
+  <section class="panel">
+    <h2>邮箱服务器</h2>
+    <label>发件邮箱<input name="mail.username" value="{{ cfg.mail.username }}"></label>
+    <label>授权码/密码<input name="mail.password" type="password" value="{{ cfg.mail.password }}"></label>
+    <label>SMTP 主机<input name="mail.smtp_host" value="{{ cfg.mail.smtp_host }}" readonly></label>
+    <label>SMTP SSL端口<input name="mail.smtp_port_ssl" value="{{ cfg.mail.smtp_port_ssl or 465 }}" readonly></label>
+    <label>SMTP STARTTLS端口<input name="mail.smtp_port_starttls" value="{{ cfg.mail.smtp_port_starttls or 25 }}" readonly></label>
+    <label>IMAP 主机<input name="mail.imap_host" value="{{ cfg.mail.imap_host }}" readonly></label>
+    <label>IMAP SSL端口<input name="mail.imap_port_ssl" value="{{ cfg.mail.imap_port_ssl or 993 }}" readonly></label>
+    <label>最小间隔秒<input name="runtime.min_delay_seconds" value="{{ cfg.runtime.min_delay_seconds or 10 }}"></label>
+    <label>最大间隔秒<input name="runtime.max_delay_seconds" value="{{ cfg.runtime.max_delay_seconds or 15 }}"></label>
+    <div class="actions"><button class="secondary" type="submit" formaction="{{ url_for('settings') }}">保存邮箱配置</button></div>
+  </section>
+  <section class="panel wide">
+    <h2>邮件模板</h2>
+    <div class="upload-field">
+      <span class="upload-title">顶部 LOGO</span>
+      <label class="file-picker"><input type="file" name="logo" accept="image/*" data-file-label="logoSelected">选择图片</label>
+      <span class="selected-file" id="logoSelected">未选择新文件</span>
+      <span class="saved-file">已保存：{{ logo_name or '未上传' }}</span>
+    </div>
+    <div class="cols">
+      <label>顶部分割线颜色<input name="email_template.header_line_color" type="color" value="{{ cfg.email_template.header_line_color or '#79c600' }}"></label>
+      <label>底部背景色<input name="email_template.footer_background_color" type="color" value="{{ cfg.email_template.footer_background_color or '#79c600' }}"></label>
+      <label>底部文字色<input name="email_template.footer_text_color" type="color" value="{{ cfg.email_template.footer_text_color or '#ffffff' }}"></label>
+      <label>邮件格式<select name="email_template.email_format">{% for label,value in formats.items() %}<option value="{{ value }}" {% if cfg.email_template.email_format==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    </div>
+    <label>主题模板<input name="templates.subject" value="{{ cfg.templates.subject }}"></label>
+    <div class="detail-box">主题只允许使用英文摘要变量：{business_summary}。系统会自动禁止把原始业务介绍直接放进主题。</div>
+    <label>正文模板<textarea class="large" name="templates.body">{{ cfg.templates.body }}</textarea></label>
+    <label>第三段手动补充<textarea name="templates.manual_third_paragraph">{{ cfg.templates.manual_third_paragraph }}</textarea></label>
+    <button class="primary" type="submit">保存配置</button>
+  </section>
+  <section class="panel wide">
+    <h2>自动回复</h2>
+    {% if g.is_local_admin %}
+    <div class="cols">
+      <label>AI 地址<input name="ai.base_url" value="{{ cfg.ai.base_url or 'https://api.openai.com' }}"></label>
+      <label>AI 模型<input name="ai.model" value="{{ cfg.ai.model or 'gpt-4o-mini' }}"></label>
+      <label>AI Key<input name="ai.api_key" type="password" value="{{ cfg.ai.api_key }}"></label>
+      <label>本地话术 Word 路径<input name="ai.local_reply_docx_path" value="{{ cfg.ai.local_reply_docx_path }}"></label>
+    </div>
+    {% endif %}
+    <div class="upload-field">
+      <span class="upload-title">导入话术 Word</span>
+      <label class="file-picker"><input type="file" name="reply_docx" accept=".docx" data-file-label="replyDocxSelected">选择 Word</label>
+      <span class="selected-file" id="replyDocxSelected">未选择新文件</span>
+      <span class="saved-file">已保存：{{ reply_docx_name or '未导入' }}</span>
+    </div>
+    <div class="detail-box">{{ reply_note }}</div>
+    <div class="cols">
+      <label>固定附件开关<select name="attachments.fixed_attachment_enabled"><option value="false" {% if cfg.attachments.fixed_attachment_enabled!='true' %}selected{% endif %}>关闭</option><option value="true" {% if cfg.attachments.fixed_attachment_enabled=='true' %}selected{% endif %}>开启</option></select></label>
+      <label>固定附件路径<input name="attachments.fixed_attachment_path" value="{{ cfg.attachments.fixed_attachment_path }}"></label>
+      <label>报价单路径<input name="attachments.quote_path" value="{{ cfg.attachments.quote_path }}"></label>
+      <label>目录路径<input name="attachments.catalog_path" value="{{ cfg.attachments.catalog_path }}"></label>
+    </div>
+    <label>证书文件路径<input name="attachments.certificate_path" value="{{ cfg.attachments.certificate_path }}"></label>
+    <div class="upload-grid">
+      <div class="upload-field">
+        <span class="upload-title">上传固定附件</span>
+        <label class="file-picker"><input type="file" name="fixed_attachment_file" data-file-label="fixedAttachmentSelected">选择文件</label>
+        <span class="selected-file" id="fixedAttachmentSelected">未选择新文件</span>
+        <span class="saved-file">已保存：{{ fixed_attachment_name or '未选择' }}</span>
+      </div>
+      <div class="upload-field">
+        <span class="upload-title">上传报价单</span>
+        <label class="file-picker"><input type="file" name="quote_file" data-file-label="quoteSelected">选择文件</label>
+        <span class="selected-file" id="quoteSelected">未选择新文件</span>
+        <span class="saved-file">已保存：{{ quote_name or '未选择' }}</span>
+      </div>
+      <div class="upload-field">
+        <span class="upload-title">上传目录</span>
+        <label class="file-picker"><input type="file" name="catalog_file" data-file-label="catalogSelected">选择文件</label>
+        <span class="selected-file" id="catalogSelected">未选择新文件</span>
+        <span class="saved-file">已保存：{{ catalog_name or '未选择' }}</span>
+      </div>
+      <div class="upload-field">
+        <span class="upload-title">上传证书</span>
+        <label class="file-picker"><input type="file" name="certificate_file" data-file-label="certificateSelected">选择文件</label>
+        <span class="selected-file" id="certificateSelected">未选择新文件</span>
+        <span class="saved-file">已保存：{{ certificate_name or '未选择' }}</span>
+      </div>
+    </div>
+    <button class="primary" type="submit">保存配置</button>
+  </section>
+</form>
+<section class="panel">
+  <h2>邮箱测试</h2>
+  <form method="post" action="{{ url_for('test_mail_config') }}">
+    <button class="primary" type="submit">测试 SMTP / IMAP 配置</button>
+  </form>
+</section>
+{% endblock %}

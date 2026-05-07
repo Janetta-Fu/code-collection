@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}工作台{% endblock %}
+{% block content %}
+<section class="cards">
+  <div class="stat"><span>客户数</span><strong>{{ counts.customers }}</strong></div>
+  <div class="stat"><span>已发送</span><strong>{{ counts.sent }}</strong></div>
+  <div class="stat"><span>失败</span><strong>{{ counts.failed }}</strong></div>
+  <div class="stat"><span>过滤/退信</span><strong>{{ counts.filtered }}</strong></div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h2>发送状态</h2><span>{{ job.message or '空闲' }}</span></div>
+  <div class="progress"><i style="width: {{ (job.current or 0) * 100 // (job.total or 1) }}%"></i></div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h2>最近记录</h2><a class="link" href="{{ url_for('logs') }}">查看全部</a></div>
+  <table>
+    <thead><tr><th>时间</th><th>公司</th><th>邮箱</th><th>状态</th><th>错误</th></tr></thead>
+    <tbody>{% for row in recent %}<tr><td>{{ row.created_at }}</td><td>{{ row.company }}</td><td>{{ row.recipient }}</td><td>{{ row.status }}</td><td>{{ row.error }}</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endblock %}

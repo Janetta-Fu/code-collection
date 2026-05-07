@@ -1,0 +1,44 @@
+[project]
+project_name = Your Project Name
+brand_primary = YOUR_BRAND
+brand_secondary = YOUR_SUB_BRAND
+project_website = https://example.com/
+product_advantages = describe your product advantages here
+contact_name = Your Name
+contact_phone = +86 00 0000 0000
+contact_email = info@example.com
+office_address = Your Office Address
+factory_address = Your Factory Address
+header_background_url = https://example.com/header.jpg
+logo_url = 
+logo_path = 
+copyright_text = Copyright Your Company Co., Ltd.
+
+[email_template]
+logo_path = 
+header_line_color = #79c600
+footer_background_color = #79c600
+footer_text_color = #ffffff
+email_format = both
+
+[mail]
+username = info@example.com
+password = PLEASE_REPLACE_WITH_YOUR_AUTH_CODE
+smtp_host = smtp-n.global-mail.cn
+smtp_port_ssl = 465
+imap_host = imap-n.global-mail.cn
+imap_port_ssl = 993
+
+[runtime]
+min_delay_seconds = 10
+max_delay_seconds = 15
+
+[ai]
+base_url = https://api.openai.com
+model = gpt-5.4-mini
+api_key = PLEASE_REPLACE_WITH_YOUR_OPENAI_API_KEY
+
+[templates]
+subject = Quick note on your {business_intro}
+body = Hi {company_name} team,\n\nI noticed on your website that {company_name} offers {business_intro}. It looks like you focus on providing reliable solutions for your clients, and keeping your offerings competitive is key to your growth.\n\nAt {project_name}, we specialize in {product_advantages}, with years of experience serving global partners. We focus on stable quality and long-term cooperation.\n\nSeeing your business scope, I thought our solutions might complement your current offerings. If you're ever looking for a trusted supplier, feel free to reach out.\n\nNo pressure at all - just wanted to introduce ourselves.\n\nBest regards,\n{project_name}\n{project_website}
+

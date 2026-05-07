@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}收件箱/自动回复{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="actions">
+    <form method="get" action="{{ url_for('inbox') }}" class="inline-form">
+      <input type="hidden" name="all" value="{{ 1 if show_all else 0 }}">
+      <input type="hidden" name="order" value="{{ sort_order }}">
+      <label>时间范围
+        <input name="days" type="number" min="1" max="365" list="inboxDayOptions" value="{{ inbox_days }}">
+      </label>
+      <datalist id="inboxDayOptions">
+        {% for day in inbox_day_options %}<option value="{{ day }}">{% endfor %}
+      </datalist>
+      <button class="secondary" type="submit">应用筛选</button>
+    </form>
+    <button class="primary" type="button" id="refreshInboxButton">刷新</button>
+    <form method="post" action="{{ url_for('auto_reply_pending') }}"><button class="primary" type="submit">自动回复全部待回复</button></form>
+    <form method="post" action="{{ url_for('test_mail_config') }}"><button class="secondary" type="submit">测试邮箱配置</button></form>
+    <a class="button-link" href="{{ url_for('inbox', all=1 if not show_all else 0, days=inbox_days, order=sort_order) }}">{{ '显示待回复' if show_all else '显示全部' }}</a>
+    <a class="button-link" href="{{ url_for('inbox', all=1 if show_all else 0, days=inbox_days, order=next_sort_order) }}">按时间排序：{{ '倒序' if sort_order == 'desc' else '正序' }}</a>
+    <span class="job-status">仅显示最近{{ inbox_days }}天邮件；超过90天默认不加载，可手动调整时间范围。</span>
+    <span class="job-status">上次刷新：<span id="lastRefreshTime">{{ last_refresh_time }}</span></span>
+  </div>
+</section>
+<section class="panel">
+  <h2>回复配置</h2>
+  <form class="reply-config" method="post" action="{{ url_for('reply_settings') }}" enctype="multipart/form-data">
+    <label>话术 Word 路径<input name="ai.local_reply_docx_path" value=""></label>
+    <div class="upload-field">
+      <span class="upload-title">导入话术 Word</span>
+      <label class="file-picker"><input type="file" name="reply_docx" accept=".docx" data-file-label="inboxReplyDocxSelected">选择 Word</label>
+      <span class="selected-file" id="inboxReplyDocxSelected">未选择新文件</span>
+      <span class="saved-file">已保存：{{ reply_docx_name or '未导入' }}</span>
+    </div>
+    <button class="primary" type="submit">保存回复配置</button>
+  </form>
+  <div class="detail-box">当前话术：{{ reply_docx_name or '未导入' }}；{{ reply_note }}</div>
+</section>
+<section class="split">
+  <div class="panel">
+    <h2>收件列表</h2>
+    <div class="detail-box">当前筛选：仅显示最近{{ inbox_days }}天邮件，按时间{{ '倒序' if sort_order == 'desc' else '正序' }}排列。</div>
+    <table>
+      <thead><tr><th>时间</th><th>发件人</th><th>邮箱</th><th>主题</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="inboxRows">
+        {% for row in rows %}
+        <tr class="clickable" data-inbox-id="{{ row.id }}">
+          <td>{{ row.display_time or row.date }}</td>
+          <td>{{ row.sender }}</td>
+          <td>{{ row.sender_email }}</td>
+          <td>{{ row.subject }}</td>
+          <td><span class="status {{ row.status }}">{{ row.status }}</span></td>
+          <td>
+            {% if row.status == '待回复' %}
+            <button class="primary compact" onclick="previewAutoReply({{ row.id }})">自动回复</button>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2 id="inboxTitle">邮件内容</h2>
+    <div class="detail-box" id="inboxMeta">点击左侧邮件查看内容。</div>
+    <div id="replyAction"></div>
+    <div class="detail-box" id="replyMeta">暂无自动回复记录。</div>
+    <pre class="mail-body" id="inboxBody"></pre>
+  </div>
+</section>
+<script>
+const replyRulesReady = {{ 'true' if reply_rules_ready else 'false' }};
+const inboxDays = {{ inbox_days }};
+const inboxSortOrder = "{{ sort_order }}";
+const seenInboxIds = new Set(Array.from(document.querySelectorAll("[data-inbox-id]")).map(row => row.dataset.inboxId));
+const replyPreviewCache = {};
+
+function confirmReplyWithoutRules(form) {
+  if (replyRulesReady) return true;
+  const ok = window.confirm("当前未导入有效话术。点击“确定”将直接使用 AI 准确回复，点击“取消”可先去导入话术。");
+  if (!ok) return false;
+  const hidden = document.createElement("input");
+  hidden.type = "hidden";
+  hidden.name = "confirm_no_rules";
+  hidden.value = "1";
+  form.appendChild(hidden);
+  return true;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
+function updateSelectedFileLabel(input) {
+  const target = document.querySelector(`[data-selected-for="${input.id}"]`);
+  if (!target) return;
+  const names = Array.from(input.files || []).map(file => file.name);
+  target.textContent = names.length ? "已选择：" + names.join("，") : "未选择新文件";
+  target.classList.toggle("has-file", names.length > 0);
+}
+
+function attachmentNamesForPreview(data, includeFixed) {
+  const names = [...(data.automatic_attachments || [])];
+  if (includeFixed && data.fixed_attachment_name && !names.includes(data.fixed_attachment_name)) {
+    names.unshift(data.fixed_attachment_name);
+  }
+  return names;
+}
+
+function selectedReplyAttachmentName(messageId) {
+  const fileInput = document.getElementById(`replyAttachmentFile${messageId}`);
+  const pathInput = document.getElementById(`replyAttachmentPath${messageId}`);
+  if (fileInput && fileInput.files && fileInput.files.length) return fileInput.files[0].name;
+  const pathValue = pathInput ? pathInput.value.trim() : "";
+  if (!pathValue) return "";
+  return pathValue.split(/[\\/]/).filter(Boolean).pop() || pathValue;
+}
+
+function updateReplyAttachmentPreview(messageId) {
+  const checkbox = document.getElementById(`includeFixedAttachment${messageId}`);
+  const attachmentText = document.getElementById(`replyAttachmentText${messageId}`);
+  if (!attachmentText) return;
+  const data = replyPreviewCache[messageId];
+  if (!data) return;
+  const names = attachmentNamesForPreview(data, checkbox ? checkbox.checked : false);
+  const selectedName = selectedReplyAttachmentName(messageId);
+  if (selectedName && !names.includes(selectedName)) names.unshift(selectedName);
+  attachmentText.textContent = names.length ? names.join("，") : "无";
+}
+
+async function sendPreviewedReply(messageId) {
+  const formData = new FormData();
+  const checkbox = document.getElementById(`includeFixedAttachment${messageId}`);
+  if (checkbox && checkbox.checked) {
+    formData.append("include_fixed_attachment", "1");
+  }
+  const pathInput = document.getElementById(`replyAttachmentPath${messageId}`);
+  const fileInput = document.getElementById(`replyAttachmentFile${messageId}`);
+  if (pathInput && pathInput.value.trim()) {
+    formData.append("reply_attachment_path", pathInput.value.trim());
+  }
+  if (fileInput && fileInput.files && fileInput.files.length) {
+    formData.append("reply_attachment_file", fileInput.files[0]);
+  }
+  const res = await fetch(`/confirm-auto-reply/${messageId}`, {
+    method: "POST",
+    headers: {"Accept": "application/json"},
+    body: formData
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    alert(`发送失败：${data.error || "请重试"}`);
+    return;
+  }
+  alert("回复已发送！");
+  location.reload();
+}
+
+// 生成回复预览，在右侧显示每封邮件自己的附件勾选项
+async function previewAutoReply(messageId) {
+  try {
+    const res = await fetch(`/auto-reply/${messageId}`, {method: "POST"});
+    const data = await res.json();
+    if (!data.ok) {
+      alert(`错误：${data.error || "生成回复失败"}`);
+      return;
+    }
+    replyPreviewCache[messageId] = data;
+    const savedChoice = data.fixed_attachment_name
+      ? `<label class="check"><input id="includeFixedAttachment${messageId}" type="checkbox" onchange="updateReplyAttachmentPreview(${messageId})"> 使用已保存附件：${escapeHtml(data.fixed_attachment_name)}</label>`
+      : `<div class="saved-file">已保存：未选择</div>`;
+    document.getElementById("replyAction").innerHTML = `
+      <div class="detail-box">
+        <strong>自动回复预览</strong><br>
+        发送至：${escapeHtml(data.sender_email)}<br>
+        主题：${escapeHtml(data.subject)}
+      </div>
+      <div class="reply-attachment-box">
+        <label>本封附件路径<input id="replyAttachmentPath${messageId}" name="reply_attachment_path" value="" oninput="updateReplyAttachmentPreview(${messageId})"></label>
+        <div class="upload-field">
+          <span class="upload-title">选择本封附件</span>
+          <label class="file-picker"><input id="replyAttachmentFile${messageId}" type="file" onchange="updateSelectedFileLabel(this); updateReplyAttachmentPreview(${messageId})">选择文件</label>
+          <span class="selected-file" data-selected-for="replyAttachmentFile${messageId}">未选择新文件</span>
+          ${savedChoice}
+        </div>
+      </div>
+      <div class="detail-box">本封附件：<span id="replyAttachmentText${messageId}">${escapeHtml((data.attachments || []).join("，") || "无")}</span></div>
+      <div class="actions">
+        <button class="primary" type="button" onclick="sendPreviewedReply(${messageId})">确认发送这封回复</button>
+      </div>
+      <pre class="mail-body">${escapeHtml(data.body)}</pre>
+    `;
+  } catch (error) {
+    alert(`出错：${error.message}`);
+  }
+}
+
+function renderInboxRow(row) {
+  return `
+    <tr class="clickable" data-inbox-id="${escapeHtml(row.id)}">
+      <td>${escapeHtml(row.display_time || row.date || "")}</td>
+      <td>${escapeHtml(row.sender || "")}</td>
+      <td>${escapeHtml(row.sender_email || "")}</td>
+      <td>${escapeHtml(row.subject || "")}</td>
+      <td><span class="status ${escapeHtml(row.status || "")}">${escapeHtml(row.status || "")}</span></td>
+      <td>${row.status === "待回复"
+        ? `<button class="primary compact" onclick="previewAutoReply(${escapeHtml(row.id)})">自动回复</button>`
+        : "-"}</td>
+    </tr>`;
+}
+
+async function openInboxRow(row) {
+  const res = await fetch(`/inbox/${row.dataset.inboxId}`);
+  const data = await res.json();
+  document.getElementById("inboxTitle").textContent = data.subject || "(无主题)";
+  document.getElementById("inboxMeta").textContent = `发件人：${data.sender || "-"}  邮箱：${data.sender_email || "-"}  状态：${data.status || "-"}`;
+  document.getElementById("inboxBody").textContent = data.body || "";
+  document.getElementById("replyAction").innerHTML = data.status === "待回复"
+    ? `<button class="primary" onclick="previewAutoReply(${data.id})">自动回复这封</button>`
+    : "";
+  document.getElementById("replyMeta").textContent = data.reply_log
+    ? `最近回复：${data.reply_log.status}｜主题：${data.reply_log.subject || "-"}｜附件/错误：${data.reply_log.error || "-"}`
+    : "暂无自动回复记录。";
+}
+
+document.getElementById("inboxRows").addEventListener("click", (event) => {
+  if (event.target.tagName === "BUTTON") return;
+  const row = event.target.closest("[data-inbox-id]");
+  if (row) openInboxRow(row);
+});
+
+async function refreshInbox(force = false) {
+  const button = document.getElementById("refreshInboxButton");
+  button.disabled = true;
+  button.textContent = "刷新中";
+  try {
+    const res = await fetch("{{ url_for('fetch_inbox_json') }}", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({days: inboxDays, order: inboxSortOrder, force})
+    });
+    const data = await res.json();
+    document.getElementById("lastRefreshTime").textContent = data.last_refresh_time || new Date().toLocaleString();
+    if (!data.ok) throw new Error(data.error || "刷新失败");
+    const tbody = document.getElementById("inboxRows");
+    [...(data.rows || [])].reverse().forEach(row => {
+      const id = String(row.id);
+      if (seenInboxIds.has(id)) return;
+      tbody.insertAdjacentHTML("afterbegin", renderInboxRow(row));
+      seenInboxIds.add(id);
+    });
+  } catch (error) {
+    document.getElementById("lastRefreshTime").textContent = `刷新失败：${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = "刷新";
+  }
+}
+
+document.getElementById("refreshInboxButton").addEventListener("click", () => refreshInbox(true));
+setInterval(() => refreshInbox(false), 4 * 60 * 1000);
+</script>
+{% endblock %}

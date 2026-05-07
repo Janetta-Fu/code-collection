@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}发送记录{% endblock %}
+{% block content %}
+<section class="split">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>记录列表</h2>
+      <form method="post" action="{{ url_for('bounce_scan') }}"><button class="primary" type="submit">扫描退信</button></form>
+    </div>
+    <table>
+      <thead><tr><th>时间</th><th>公司</th><th>邮箱</th><th>状态</th><th>主题</th><th>错误</th></tr></thead>
+      <tbody>{% for row in rows %}<tr class="clickable" data-log-id="{{ row.id }}"><td>{{ row.created_at }}</td><td>{{ row.company }}</td><td>{{ row.recipient }}</td><td>{{ row.status }}</td><td>{{ row.subject }}</td><td>{{ row.error }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2 id="logTitle">邮件详情</h2>
+    <div class="detail-box" id="logMeta">点击左侧记录查看完整主题、正文和错误。</div>
+    <div class="subject" id="logSubject">-</div>
+    <pre class="mail-body" id="logBody">暂无正文。</pre>
+    <iframe class="preview small" id="logPreview"></iframe>
+  </div>
+</section>
+<script>
+function escapeHtml(value){
+  return (value || "").replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]));
+}
+
+document.querySelectorAll("[data-log-id]").forEach(row => {
+  row.onclick = async () => {
+    const res = await fetch(`/log/${row.dataset.logId}`);
+    const data = await res.json();
+    document.getElementById("logTitle").textContent = `${data.status}｜${data.company || ""}`;
+    document.getElementById("logMeta").textContent = `时间：${data.created_at || "-"}  收件人：${data.recipient || "-"}  错误：${data.error || "-"}`;
+    document.getElementById("logSubject").textContent = data.subject || "(无主题)";
+    document.getElementById("logBody").textContent = data.body || data.error || "暂无正文。";
+    document.getElementById("logPreview").srcdoc = data.html || `<pre style="white-space:pre-wrap;font-family:Arial,sans-serif;line-height:1.6;padding:14px;">${escapeHtml(data.body || data.error || "暂无预览。")}</pre>`;
+  };
+});
+</script>
+{% endblock %}

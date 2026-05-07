@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}批量自动回复确认{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-warning">
+            <h4 class="mb-0">批量自动回复确认</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <strong>⚠️ 注意：</strong> 你即将向 {{ count }} 个联系人发送自动回复。请仔细检查后再确认！
+            </div>
+
+            <h5>待回复邮件列表（共 {{ count }} 封）：</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>发件人</th>
+                            <th>邮箱</th>
+                            <th>主题</th>
+                            <th>日期</th>
+                            <th>本封附件</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.sender }}</td>
+                            <td>{{ item.sender_email }}</td>
+                            <td>{{ item.subject }}</td>
+                            <td>{{ item.date }}</td>
+                            <td class="batch-attachment-cell">
+                                <input form="batchReplyForm" name="reply_attachment_path_{{ item.id }}" placeholder="本封附件路径">
+                                <label class="file-picker">
+                                    <input form="batchReplyForm" type="file" name="reply_attachment_file_{{ item.id }}" data-file-label="batchAttachment{{ item.id }}">
+                                    选择文件
+                                </label>
+                                <span class="selected-file" id="batchAttachment{{ item.id }}">未选择新文件</span>
+                                {% if fixed_attachment_name %}
+                                <label>
+                                    <input type="checkbox" form="batchReplyForm" name="include_fixed_attachment_ids" value="{{ item.id }}" {% if include_fixed_default %}checked{% endif %}>
+                                    使用已保存附件：{{ fixed_attachment_name }}
+                                </label>
+                                {% else %}
+                                <span class="saved-file">已保存：未选择</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4">
+                <form id="batchReplyForm" method="POST" action="{{ url_for('execute_batch_reply') }}" enctype="multipart/form-data" class="d-inline">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-circle"></i> 确认发送全部回复
+                    </button>
+                </form>
+                <a href="{{ url_for('inbox') }}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-x-circle"></i> 取消
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+</style>
+{% endblock %}

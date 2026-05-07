@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}批量发送{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="send-toolbar">
+    <form class="upload-row" method="post" enctype="multipart/form-data">
+      <div class="upload-field inline-upload">
+        <span class="upload-title">客户 Excel</span>
+        <label class="file-picker">
+          <input type="file" name="excel" accept=".xlsx" required data-file-label="excelSelected">
+          选择文件
+        </label>
+        <span class="selected-file" id="excelSelected">未选择新文件</span>
+      </div>
+      <button class="primary" type="submit">导入 Excel</button>
+      <span class="upload-current">当前表格：{{ latest_excel_name or '暂无 Excel 文件' }}</span>
+    </form>
+    <div class="detail-box">
+      当前导入表格：{{ latest_excel_name or '暂无 Excel 文件' }}；客户数量：{{ total_customers or 0 }}；发送附件：{{ send_attachment_names|join('，') if send_attachment_names else '无' }}
+    </div>
+    <div class="send-actions">
+      <form method="post" action="{{ url_for('start_send') }}"><button class="primary" type="submit">开始发送</button></form>
+      <form method="post" action="{{ url_for('stop_send') }}"><button class="secondary" type="submit">停止发送</button></form>
+      <span class="job-status" id="jobStatus">{{ job.message or '空闲' }}</span>
+    </div>
+  </div>
+  <div class="progress"><i id="jobProgress" style="width: {{ (job.current or 0) * 100 // (job.total or 1) }}%"></i></div>
+  <div class="progress-meta" id="jobMeta">已发送 {{ job.sent or 0 }}，失败 {{ job.failed or 0 }}，过滤 {{ job.filtered or 0 }}</div>
+</section>
+<section class="send-detail-layout">
+  <div class="panel">
+    <h2>客户列表</h2>
+    <table>
+      <thead><tr><th>公司</th><th>邮箱</th><th>业务介绍</th><th>状态</th><th>错误</th></tr></thead>
+      <tbody id="customerRows">{% include "_customer_rows.html" %}</tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2 id="detailTitle">首封预览</h2>
+    <p class="subject" id="detailSubject">{{ subject }}</p>
+    <div class="detail-box" id="detailInfo">收件人：{{ rows[0].email if rows else '-' }}；附件：{{ send_attachment_names|join('，') if send_attachment_names else '无' }}</div>
+    <div class="mail-preview-full" id="detailPreview">{{ preview|safe }}</div>
+  </div>
+</section>
+<script>
+async function refreshProgress(){
+  const res = await fetch("{{ url_for('job_status') }}");
+  const data = await res.json();
+  const total = data.total || 1;
+  const pct = Math.min(100, Math.round((data.current || 0) * 100 / total));
+  document.getElementById("jobProgress").style.width = pct + "%";
+  document.getElementById("jobStatus").textContent = data.message || "空闲";
+  document.getElementById("jobMeta").textContent = `进度 ${data.current || 0}/${data.total || 0}，已发送 ${data.sent || 0}，失败 ${data.failed || 0}，过滤 ${data.filtered || 0}`;
+  const table = await fetch("{{ url_for('send_table') }}");
+  document.getElementById("customerRows").innerHTML = await table.text();
+  bindRows();
+}
+async function showCustomer(id){
+  const res = await fetch(`/customer/${id}`);
+  const data = await res.json();
+  document.getElementById("detailTitle").textContent = data.company + "｜" + data.status;
+  document.getElementById("detailSubject").textContent = data.subject || "-";
+  document.getElementById("detailInfo").textContent = data.error ? "错误：" + data.error : "收件人：" + data.email + "；附件：{{ send_attachment_names|join('，') if send_attachment_names else '无' }}";
+  document.getElementById("detailPreview").innerHTML = data.html || "";
+}
+function bindRows(){
+  document.querySelectorAll("[data-customer-id]").forEach(row => {
+    row.onclick = () => showCustomer(row.dataset.customerId);
+  });
+}
+bindRows();
+setInterval(refreshProgress, 3000);
+</script>
+{% endblock %}
