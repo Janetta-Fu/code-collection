@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maps Lead Harvester</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="popup">
+    <section class="panel hero">
+      <p class="eyebrow">Google Maps 海外获客</p>
+      <h1>本地采集与联系方式提取</h1>
+      <p class="hint">
+        一键模式：填写项目关键词后点开始即可；国家和城市可在高级设置里限定。
+      </p>
+      <textarea id="keywordInput" rows="3" placeholder="关键词必填，可输入一个或多个，逗号分隔"></textarea>
+      <label class="checkbox-row">
+        <input id="expandKeywordsInput" type="checkbox">
+        <span>自动拓展关键词同义词 / 近义词</span>
+      </label>
+
+      <details class="advanced-settings">
+        <summary>高级设置：国家、城市、跳过名单</summary>
+        <p class="detail-text">平时不用改这里；需要限定国家/城市、控制本轮城市数或手动跳过城市时再展开。</p>
+        <div class="input-grid">
+          <input id="countryInput" type="text" placeholder="国家可选，例如：United States；留空则轮询预设国家">
+          <input id="cityInput" type="text" placeholder="城市可选，例如：Los Angeles；留空则按国家自动切换地区">
+          <input id="cityBatchSizeInput" type="number" min="1" step="1" placeholder="本轮跑几个城市，例如：3；留空默认跑 10 个城市">
+          <input id="manualSkipCitiesInput" type="text" placeholder="手动跳过城市，例如：New York, Los Angeles, Chicago, Houston">
+        </div>
+        <label class="checkbox-row">
+          <input id="skipVisitedInput" type="checkbox">
+          <span>自动国家 / 地区轮询时跳过已采集过的城市</span>
+        </label>
+        <label class="checkbox-row">
+          <input id="restartCitiesInput" type="checkbox">
+          <span>从头跑，忽略之前跑过的城市历史</span>
+        </label>
+        <div id="cityPlanPreview" class="detail-text">本轮城市预览会显示在这里。</div>
+        <div id="citySkipPreview" class="detail-text">已采集城市和本轮跳过城市会显示在这里。</div>
+      </details>
+
+      <div class="keywords" id="keywordHints"></div>
+      <div class="actions">
+        <button id="startBtn" class="btn btn-primary">开始采集</button>
+        <button id="exportCsvBtn" class="btn btn-secondary">导出 CSV</button>
+        <button id="exportExcelBtn" class="btn btn-secondary">导出 Excel</button>
+      </div>
+    </section>
+
+    <section class="panel status-panel">
+      <div class="status-row">
+        <span class="label">当前状态</span>
+        <strong id="statusText">待命</strong>
+      </div>
+      <div class="status-row">
+        <span class="label">采集进度</span>
+        <strong id="progressText">0 / 0</strong>
+      </div>
+      <div class="progress-track">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <p id="detailText" class="detail-text">请先打开 Google Maps 页面，再启动插件。</p>
+    </section>
+
+    <section class="panel summary">
+      <div class="summary-grid">
+        <div>
+          <span class="label">已采集</span>
+          <strong id="resultCount">0</strong>
+        </div>
+        <div>
+          <span class="label">历史已采集城市</span>
+          <strong id="completedCityCountText">0</strong>
+        </div>
+        <div>
+          <span class="label">本次计划国家</span>
+          <strong id="plannedCountriesText">-</strong>
+        </div>
+        <div>
+          <span class="label">剩余国家</span>
+          <strong id="remainingCountriesText">-</strong>
+        </div>
+        <div>
+          <span class="label">本次计划城市</span>
+          <strong id="plannedCitiesText">-</strong>
+        </div>
+        <div>
+          <span class="label">剩余城市</span>
+          <strong id="remainingCitiesText">-</strong>
+        </div>
+        <div>
+          <span class="label">当前国家</span>
+          <strong id="countryText">-</strong>
+        </div>
+        <div>
+          <span class="label">当前城市</span>
+          <strong id="cityText">-</strong>
+        </div>
+        <div>
+          <span class="label">城市关键词进度</span>
+          <strong id="cityKeywordProgressText">-</strong>
+        </div>
+        <div>
+          <span class="label">当前关键词</span>
+          <strong id="keywordText">-</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel filters">
+      <div class="results-header">
+        <span>结果管理</span>
+        <button id="dedupeBtn" class="link-btn">一键去重</button>
+      </div>
+      <div class="filter-grid">
+        <input id="filterInput" type="text" placeholder="筛选公司名 / 邮箱 / 电话 / 国家 / 城市">
+        <select id="sourceFilter">
+          <option value="">全部来源</option>
+          <option value="地图">地图</option>
+          <option value="官网">官网</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Instagram">Instagram</option>
+          <option value="LinkedIn">LinkedIn</option>
+        </select>
+      </div>
+      <p id="filterSummary" class="detail-text">当前显示 0 / 0 条结果。</p>
+    </section>
+
+    <section class="panel results">
+      <div class="results-header">
+        <span>最近结果</span>
+        <div>
+          <button id="restoreBtn" class="link-btn">恢复上次结果</button>
+          <button id="clearBtn" class="link-btn">清空数据</button>
+        </div>
+      </div>
+      <div id="resultsList" class="results-list"></div>
+    </section>
+
+    <section class="panel results">
+      <div class="results-header">
+        <span>最近三次城市记录</span>
+      </div>
+      <div id="cityRunHistory" class="results-list"></div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="results-header">
+        <span>结果表格预览</span>
+      </div>
+      <div class="table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>公司名称</th>
+              <th>电话</th>
+              <th>邮箱</th>
+              <th>官网</th>
+              <th>所在国家</th>
+              <th>所在城市</th>
+              <th>搜索关键词</th>
+              <th>业务介绍</th>
+              <th>社媒链接</th>
+              <th>评分</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

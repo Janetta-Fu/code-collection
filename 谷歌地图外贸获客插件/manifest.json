@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Google Maps Lead Harvester",
+  "version": "1.0.0",
+  "description": "Bulk collect Google Maps business leads, enrich contact details from websites/social media, and export locally.",
+  "action": {
+    "default_title": "Maps Lead Harvester",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
