@@ -1,0 +1,7 @@
+﻿{
+    "download":  {
+                     "directory_upgrade":  true,
+                     "prompt_for_download":  false,
+                     "default_directory":  "C:\\Users\\clsc69\\Desktop\\email\\workspaces\\codex_test\\downloads"
+                 }
+}

@@ -1,0 +1,7 @@
+网页版外贸邮件系统已启动：http://127.0.0.1:5099
+局域网访问请使用本机 IP：http://本机IP:5099
+工作区：codex_test
+数据目录：C:\Users\clsc69\Desktop\email\workspaces\codex_test\web_data
+默认管理员：admin / admin123
+ * Serving Flask app 'web_app'
+ * Debug mode: off
